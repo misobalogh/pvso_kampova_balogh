@@ -55,16 +55,6 @@ def apply_on_quadrant(image, fun_to_apply, part_num):
     image[y_start:y_end, x_start:x_end, :] = processed_roi
     return image
 
-
-def rotate90_filter(roi):
-    row, col = roi.shape[:2]
-    rotated = np.zeros_like(roi)
-    for i in range(row):
-        for j in range(col):
-            rotated[j, row - 1 - i, :] = roi[i, j, :]
-    return rotated
-
-
 def sobel_filter(roi):
     """
     Apply 3x3 Sobel edge detection filter to the input ROI.
@@ -93,6 +83,19 @@ def sobel_filter(roi):
 
     magnitude = np.sqrt(grad_x**2 + grad_y**2).clip(0, 255).astype(np.uint8)
     return cv2.cvtColor(magnitude, cv2.COLOR_GRAY2BGR)
+
+def rotate90_filter(roi):
+    row, col = roi.shape[:2]
+    rotated = np.zeros_like(roi)
+    for i in range(row):
+        for j in range(col):
+            rotated[j, row - 1 - i, :] = roi[i, j, :]
+    return rotated
+
+def red_channel_filter(roi):
+    # TODO: Implement filter that keeps only red chanel
+    return roi
+
 
 
 if USE_XIMEA:
@@ -141,11 +144,13 @@ if taken_pics == MAX_PICS:
 
     apply_on_quadrant(mosaic, sobel_filter, 0)
     apply_on_quadrant(mosaic, rotate90_filter, 1)
+    apply_on_quadrant(mosaic, red_channel_filter, 2)
 
     cv2.imshow("Mosaic", mosaic.astype(np.uint8))
     print("Press any key to exit...")
     cv2.waitKey(0)
 
+    # TODO: Print info about image
 
 ####################################
 #           Cleanup
