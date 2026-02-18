@@ -93,8 +93,16 @@ def rotate90_filter(roi):
     return rotated
 
 def red_channel_filter(roi):
-    # TODO: Implement filter that keeps only red chanel
-    return roi
+    red = roi.copy()
+    # OpenCV : BGR
+    # B = 0 , G = 1 , R = 2
+    if num_channels == 3:  # BGR
+        red[0:240, 0:240, 0] = 0  # Blue
+        red[0:240, 0:240, 1] = 0  # Green
+    elif num_channels == 4: # RGBA
+        red[:, :, 1] = 0 
+        red[:, :, 2] = 0
+    return red
 
 
 
@@ -150,7 +158,24 @@ if taken_pics == MAX_PICS:
     print("Press any key to exit...")
     cv2.waitKey(0)
 
-    # TODO: Print info about image
+    print(60*"=") 
+    print(24*" "+"Image info :") 
+    print(60*"=")  
+    print("Data type:", mosaic.dtype)
+    print("Dimensions ", mosaic.shape)
+    print("height :",mosaic.shape[0])
+    print("width :",mosaic.shape[1])
+    print("channels :",num_channels)
+    if num_channels == 3: 
+        color_format = "BGR"
+    elif num_channels == 4: 
+        color_format = "RGBA"
+    else : 
+        color_format = "unknown"
+    print("Color format:", color_format)
+    print("Total number of elements (h x w x ch): ", mosaic.size)
+    print("Number of pixels (h x w):", mosaic.shape[0] * mosaic.shape[1])
+    print("Memory size in bytes:", mosaic.nbytes)
 
 ####################################
 #           Cleanup
