@@ -75,8 +75,12 @@ def sobel_filter(roi):
 
     gray    = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
 
-    sobel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
-    sobel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
+    sobel_x = np.array([[-1, 0, 1],
+                        [-2, 0, 2],
+                        [-1, 0, 1]], dtype=np.float32)
+    sobel_y = np.array([[-1, -2, -1],
+                        [ 0,  0,  0],
+                        [ 1,  2,  1]], dtype=np.float32)
 
     grad_x  = cv2.filter2D(gray, cv2.CV_64F, sobel_x, borderType=cv2.BORDER_DEFAULT)
     grad_y  = cv2.filter2D(gray, cv2.CV_64F, sobel_y, borderType=cv2.BORDER_DEFAULT)
@@ -97,8 +101,8 @@ def red_channel_filter(roi):
     # OpenCV : BGR
     # B = 0 , G = 1 , R = 2
     if num_channels == 3:  # BGR
-        red[0:240, 0:240, 0] = 0  # Blue
-        red[0:240, 0:240, 1] = 0  # Green
+        red[:, :, 0] = 0  # Blue
+        red[:, :, 1] = 0  # Green
     elif num_channels == 4: # RGBA
         red[:, :, 1] = 0
         red[:, :, 2] = 0
