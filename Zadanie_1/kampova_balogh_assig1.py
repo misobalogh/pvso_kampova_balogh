@@ -73,7 +73,7 @@ def sobel_filter(roi):
         Processed ROI with edges highlighted (BGR image)
     """
 
-    gray    = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if num_channels == 3 else cv2.cvtColor(roi, cv2.COLOR_BGRA2GRAY)
 
     sobel_x = np.array([[-1, 0, 1],
                         [-2, 0, 2],
@@ -86,7 +86,8 @@ def sobel_filter(roi):
     grad_y  = cv2.filter2D(gray, cv2.CV_64F, sobel_y, borderType=cv2.BORDER_DEFAULT)
 
     magnitude = np.sqrt(grad_x**2 + grad_y**2).clip(0, 255).astype(np.uint8)
-    return cv2.cvtColor(magnitude, cv2.COLOR_GRAY2BGR)
+
+    return cv2.cvtColor(magnitude, cv2.COLOR_GRAY2BGR) if num_channels == 3 else cv2.cvtColor(magnitude, cv2.COLOR_GRAY2BGRA)
 
 def rotate90_filter(roi):
     row, col = roi.shape[:2]
@@ -103,9 +104,9 @@ def red_channel_filter(roi):
     if num_channels == 3:  # BGR
         red[:, :, 0] = 0  # Blue
         red[:, :, 1] = 0  # Green
-    elif num_channels == 4: # RGBA
+    elif num_channels == 4: # BGRA
+        red[:, :, 0] = 0
         red[:, :, 1] = 0
-        red[:, :, 2] = 0
     return red
 
 
