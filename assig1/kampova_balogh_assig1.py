@@ -100,7 +100,7 @@ def red_channel_filter(roi):
         red[0:240, 0:240, 0] = 0  # Blue
         red[0:240, 0:240, 1] = 0  # Green
     elif num_channels == 4: # RGBA
-        red[:, :, 1] = 0 
+        red[:, :, 1] = 0
         red[:, :, 2] = 0
     return red
 
@@ -120,10 +120,10 @@ if USE_XIMEA:
     print("Starting data acquisition...")
     cam.start_acquisition()
 else:
-    print("Opening notebook webcam...")
+    print("Opening notebook camera...")
     cam = cv2.VideoCapture(0)
     if not cam.isOpened():
-        raise RuntimeError("Cannot open webcam")
+        raise RuntimeError("Cannot open camera")
 
 
 while taken_pics < MAX_PICS:
@@ -158,24 +158,20 @@ if taken_pics == MAX_PICS:
     print("Press any key to exit...")
     cv2.waitKey(0)
 
-    print(60*"=") 
-    print(24*" "+"Image info :") 
-    print(60*"=")  
-    print("Data type:", mosaic.dtype)
-    print("Dimensions ", mosaic.shape)
-    print("height :",mosaic.shape[0])
-    print("width :",mosaic.shape[1])
-    print("channels :",num_channels)
-    if num_channels == 3: 
-        color_format = "BGR"
-    elif num_channels == 4: 
-        color_format = "RGBA"
-    else : 
-        color_format = "unknown"
-    print("Color format:", color_format)
-    print("Total number of elements (h x w x ch): ", mosaic.size)
-    print("Number of pixels (h x w):", mosaic.shape[0] * mosaic.shape[1])
-    print("Memory size in bytes:", mosaic.nbytes)
+    print(60*"#")
+    print(24*" "+"Image info:")
+    print(60*"#")
+    print(f"{'Data type':<32}{str(mosaic.dtype):>28}")
+    print(f"{'Dimensions':<32}{str(mosaic.shape):>28}")
+    print(f"{'Height':<32}{str(mosaic.shape[0]):>28}")
+    print(f"{'Width':<32}{str(mosaic.shape[1]):>28}")
+    print(f"{'Channels':<32}{num_channels:>28}")
+    color_format = 'BGR' if num_channels == 3 else 'RGBA' if num_channels == 4 else 'unknown'
+    print(f"{'Color format':<32}{color_format:>28}")
+    print(f"{'Total elements (h x w x ch)':<32}{mosaic.size:>28}")
+    print(f"{'Number of pixels (h x w)':<32}{mosaic.shape[0] * mosaic.shape[1]:>28}")
+    print(f"{'Memory size in bytes':<32}{mosaic.nbytes:>28}")
+    print(60*"#")
 
 ####################################
 #           Cleanup
