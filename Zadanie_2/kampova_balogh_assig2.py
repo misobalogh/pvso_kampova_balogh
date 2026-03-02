@@ -72,6 +72,8 @@ def capture_calibration_images():
                 continue
 
         preview = frame.copy()
+        w,h = preview.shape[:2] 
+        preview = cv2.resize(preview, (w//4, h//4))
 
         cv2.imshow("Calibration preview", preview)
         k = cv2.waitKey(1)
@@ -128,6 +130,7 @@ def calibrate_camera():
 
             # Draw and display the corners
             cv2.drawChessboardCorners(img, (BOARD_W, BOARD_H), corners2, ret)
+            img = cv2.resize(img, (640, 480))
             cv2.imshow("img", img)
             cv2.waitKey(0)
 
@@ -214,8 +217,10 @@ if __name__ == "__main__":
 
     data = np.load(CALIB_FILE)
     mtx, dist = data["mtx"], data["dist"]
-    img_path = sorted(glob.glob(os.path.join(CALIB_DIR, "*.jpg")))[0]
 
-    undistort_image(mtx, dist, img_path, method=UndistortMethod.CROP)
-    undistort_image(mtx, dist, img_path, method=UndistortMethod.REMAPP)
+    for image in sorted(glob.glob(os.path.join(CALIB_DIR, "*.jpg"))):
+        undistort_image(mtx, dist, image, method=UndistortMethod.CROP)
+
+    # img_path = sorted(glob.glob(os.path.join(CALIB_DIR, "*.jpg")))[0]
+    # undistort_image(mtx, dist, img_path, method=UndistortMethod.REMAPP)
 ####################################
