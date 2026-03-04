@@ -72,7 +72,7 @@ def capture_calibration_images():
                 continue
 
         preview = frame.copy()
-        w,h = preview.shape[:2] 
+        w,h = preview.shape[:2]
         preview = cv2.resize(preview, (w//4, h//4))
 
         cv2.imshow("Calibration preview", preview)
@@ -185,9 +185,6 @@ def show_comparison(original, processed):
     cv2.destroyAllWindows()
 
 
-####################################
-#   FÁZA 3 – UNDISTORTION         #
-####################################
 def undistort_image(mtx, dist, img_path, method=UndistortMethod.CROP):
     img   = cv2.imread(img_path)
     h, w  = img.shape[:2]
