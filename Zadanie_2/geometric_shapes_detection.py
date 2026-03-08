@@ -11,6 +11,12 @@ import numpy as np
 import os
 
 ####################################
+#          CAMERA SWITCH
+USE_XIMEA = False
+####################################
+
+
+####################################
 #   Camera calibration parameters  #
 ####################################
 CALIB_FILE = "camera_calib.npz"
@@ -188,21 +194,41 @@ def detect_shapes(frame):
 
 
 def main():
-    cam = cv2.VideoCapture(0)
-    if not cam.isOpened():
-        print("Cannot open camera")
-        return
+    if USE_XIMEA:
+        from ximea import xiapi
+        cam = xiapi.Camera()
+        print("Opening first Ximea camera...")
+        cam.open_device()
+        cam.set_exposure(50000)
+        cam.set_param("imgdataformat", "XI_RGB32")
+        cam.set_param("auto_wb", 1)
+        xi_img = xiapi.Image()
+        cam.start_acquisition()
+    else:
+        print("Opening notebook camera...")
+        cam = cv2.VideoCapture(0)
+        if not cam.isOpened():
+            print("Cannot open camera")
+            return
 
     while True:
-        ret, frame = cam.read()
-        if not ret:
-            continue
+        if USE_XIMEA:
+            cam.get_image(xi_img)
+            frame = xi_img.get_image_data_numpy()
+        else:
+            ret, frame = cam.read()
+            if not ret:
+                continue
         result = detect_shapes(frame)
         cv2.imshow("Shape detection", result)
         if cv2.waitKey(1) == ord("q"):
             break
 
-    cam.release()
+    if USE_XIMEA:
+        cam.stop_acquisition()
+        cam.close_device()
+    else:
+        cam.release()
     cv2.destroyAllWindows()
 
     img = cv2.imread("imgs/shapes/test1.jpg")
