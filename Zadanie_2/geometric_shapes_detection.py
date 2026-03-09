@@ -97,7 +97,10 @@ def detect_shapes(frame):
     frame = undistort_frame(frame)
 
     output = frame.copy()
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if frame.ndim == 3 and frame.shape[2] == 4: # BGRA for Ximea
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 50, 150)
 
