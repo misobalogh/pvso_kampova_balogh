@@ -1,0 +1,243 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{beramono}
+\usepackage{float}
+
+\definecolor{vscode_bg}{RGB}{30,30,30}
+\definecolor{light_bg}{RGB}{245,245,247}
+\definecolor{codeblue}{RGB}{0,110,180}
+\definecolor{codegreen}{RGB}{34,139,34}
+\definecolor{codepurple}{RGB}{128,0,128}
+
+\lstset{
+    language=Python,
+    backgroundcolor=\color{light_bg},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codeblue}\bfseries,
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{orange},
+    basicstyle=\ttfamily\footnotesize,
+    columns=flexible,
+    fontadjust=true,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=10pt,
+    showstringspaces=false,
+    frame=lines,
+    rulecolor=\color{gray!10},
+    xleftmargin=15pt
+}
+
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+
+\title{Zadanie 2: Kalibrácia kamery a spracovanie obrazu}
+\author{Michal Balogh \\ Jana Kampová}
+\date{Predmet: PVSO \\ 2025/2026}
+
+\begin{document}
+
+\maketitle
+\clearpage
+\tableofcontents
+\clearpage
+\section{Kalibrácia kamery (Task 1)}
+
+Proces kalibrácie slúži na odstránenie optických chýb šošovky. Celý postup prebieha v nasledujúcich krokoch:
+
+\subsection{Príprava súradníc}
+Pri kalibrácii pracujeme s dvoma sadami bodov, ktoré sa algoritmus snaží spárovať:
+
+\begin{itemize}
+    \item \textbf{Ideálne súradnice (\textbf{objpoints})}: Predstavujú „3D body v reálnom svete“ (ideálnu mriežku šachovnice).
+    \begin{itemize}
+        \item \textbf{\textbf{objp}}: Pole nul pre $x, y, z$ súradnice, kde $z$ ostáva 0 a $x, y$ sa na seba párujú podľa počtu rohov šachovnice.
+    \end{itemize}
+    \item \textbf{Obrazové súradnice (\textbf{imgpoints})}: „2D body v rovine obrazu“, teda súradnice z reálneho obrázka šachovnice.
+\end{itemize}
+
+\subsection{Detekcia}
+
+Pre každú  snímku hľadáme vnútorné rohy pomocou \textbf{cv2.findChessboardCorners}.
+Ak sa nájdu všetky rohy (\textbf{ret == True}), nasleduje :
+
+\begin{itemize}
+    \item \textbf{\textbf{cv2.cornerSubPix}}: Táto funkcia hľadá najpresnejšiu súradnicu hrany.
+    \item \textbf{Princíp symetrie}: Algoritmus analyzuje okno $11 \times 11$ pixelov a zisťuje, kde je matematický gradient najviac symetrický podľa jasu. Tento bod sa považuje za presný matematický stred rohu (+).
+    \item \textbf{Vizuálna kontrola}: Pomocou \textbf{cv2.drawChessboardCorners} overujeme, či program našiel rohy v správnom poradí (od červenej po modrú farbu).
+\end{itemize}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{chessboard.png}
+    \caption{Ukážka detekcie vnútorných rohov na šachovnici v našom programe pomocou \textbf{cv2.drawChessboardCorners}.}
+\end{figure}
+\subsection{Výpočet modelu a geometria kamery}
+Samotný výpočet \textbf{cv2.calibrateCamera} porovnáva ideálnu mriežku s pokrivenými bodmi z fotiek.
+
+\subsubsection*{Vnútorné parametre (Camera Matrix $K$)}
+Matica $3 \times 3$ matematicky prepojuje 3D priestor s 2D fotkou.
+\[
+K = \begin{bmatrix}
+f_x & 0 & c_x \\
+0 & f_y & c_y \\
+0 & 0 & 1
+\end{bmatrix}
+\]
+V matici sú kľúčové parametre $f_x, f_y$ (ohnisková vzdialenosť) a $c_x, c_y$ (optický stred).
+
+\subsubsection*{Model skreslenia (\textbf{dist})}
+Reálne šošovky mávajú geometrické deformácie, ktoré v kóde popisujeme koeficientami $(k_1, k_2, p_1, p_2, k_3)$. Rozlišujeme nasledujúce typy:
+
+
+\begin{itemize}
+    \item \textbf{Radiálne skreslenie ($k_n$)}: Spôsobené tvarom šošovky. Spôsobuje ohýbanie priamok smerom od stredu alebo k stredu obrazu.
+    \item \textbf{Tangenciálne skreslenie ($p_n$)}: Vzniká pri výrobnej nepresnosti, kedy šošovka nie je dokonale rovnobežná so snímačom (Decentering distortion).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{image_1b9dfe.png} \hfill
+    \includegraphics[width=0.3\textwidth]{image_1b9e1b.png}
+    \hfill
+    \includegraphics[width=0.3\textwidth]{image_1b9b52.png}
+    \hfill
+    \includegraphics[width=0.3\textwidth]{image_1b9e3e.png}
+
+    \caption{Zľava: radiálne skreslenie typu Barrel a Pincushion, tangenciálne skreslenie, ideálna mriežka bez skreslenia}
+\end{figure}
+
+\subsection{Odstránenie skreslenia (Undistortion)}
+Pre narovnanie obrazu používame dve metódy definované v \textbf{UndistortMethod}:
+
+\begin{enumerate}
+    \item \textbf{Metóda CROP}: \newline Počíta sa pre každý obrazok. Algoritmus vezme súradnicu rovného pixelu, vypočíta, kde by bol v pokrivenom obraze, a pomocou \textbf{interpolácie} (priemer zo 4 susedných pixelov) mu priradi farbu.
+    \item \textbf{Metóda REMAPP}: \newline Najskôr vytvorí mapu rozdielov pre každý jeden pixel. Táto mapa sa vytvorí len raz na začiatku a potom sa už len aplikuje na každý nasnímaný obrázok, čo je dobre využiteľné práve pre spracovanie videa v reálnom čase.
+\end{enumerate}
+
+\subsubsection*{Optimalizácia a ROI}
+Pomocou \textbf{cv2.getOptimalNewCameraMatrix} a parametra \textbf{alpha=1} (ponechanie všetkých pixelov) získavame \textbf{ROI} (Region of Interest). \newline ROI sú súradnice čistého obdĺžnika bez čiernych rohov $[x, y, rw, rh]$.
+Vďaka tomu môžeme urobiť finálny orez (\textbf{dst[y:y+rh, x:x+rw]}), čím zahodíme prázdne čierne rohy, ktoré vznikli narovnaním.
+
+\subsection{Analýza presnosti (Mean Reprojection Error)}
+Spätná kontrola prebieha tak, že vezmeme 3D body ideálnej šachovnice a cez našu novú maticu ich premietneme naspäť na fotku.
+\begin{itemize}
+    \item Používame normu \textbf{NORM\_L2} (Pytagorova veta), ktorá vypočíta priamu vzdialenosť medzi vypočítaným a skutočným bodom.
+    \item Dosiahnutý výsledok v pixeloch určuje kvalitu: $0.1 - 0.5$ px je veľmi dobrý výsledok pre bežnú kameru.
+\end{itemize}
+\subsection{Získané parametre kamery}
+Na základe spracovania sady kalibračných obrázkov sme získali nasledujúce parametre :
+
+\begin{itemize}
+    \item \textbf{Mean Reprojection Error} = 0.245 px
+    \item \textbf{Matica kamery $K$:}
+    \[
+    K = \begin{bmatrix}
+    645.12 & 0 & 320.55 \\
+    0 & 644.89 & 240.12 \\
+    0 & 0 & 1
+    \end{bmatrix}
+    \]
+    \item \textbf{Koeficienty skreslenia:}
+    \textbf{dist} = $[-0.28, 0.09, 0.001, 0.002, -0.01]$
+\end{itemize}
+Tieto hodnoty potvrdzujú mierne súdkovité skreslenie, ktoré je typické pre širokouhlé webkamery.
+
+\newpage
+\newpage
+\section{Farebný filter (Task 3)}
+
+\subsection{Farebný priestor HSV}
+Pre detekciu farieb sme použili model \textbf{HSV}. Hlavným dôvodom je, že na rozdiel od BGR, HSV oddeľuje jasovú zložku (Value) od farebnej (Hue). To nám umožňuje nastaviť filter, ktorý je odolný voči tieňom a zmenám osvetlenia v miestnosti.
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{colors.png}
+    \caption{HSV farebný model používaný aj v knižnici OpenCV.}
+    \label{fig:hsv_wheel}
+\end{figure}
+\subsubsection*{Škálovanie hodnôt v OpenCV}
+Na rozdiel od bežného matematického modelu, OpenCV upravuje rozsahy hodnôt pre potreby spracovania obrazu:
+\begin{itemize}
+    \item \textbf{Odtieň (H):} Štandardný rozsah $0^{\circ}$--$360^{\circ}$ je vydelený dvoma, čím vzniká rozsah \textbf{0--180}.
+    \item \textbf{Sýtosť (S) a Jas (V):} Pôvodný rozsah $0$--$100\%$ je prepočítaný na hodnoty \textbf{0--255}.
+\end{itemize}
+ V kóde sme pre jednotlivé farby určili nasledujúce hodnoty. \newline Červená farba vyžaduje spojenie dvoch masiek lebo v HSV kruhu sa nachádza na oboch koncoch intervalu (pri 0° aj 180°).
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Farba} & \textbf{Hue (Odtieň)} & \textbf{Saturation (Sýtosť)} & \textbf{Value (Jas)} \\ \hline
+Červená (1)    & 0 -- 10               & 100 -- 255                  & 100 -- 255          \\ \hline
+Červená (2)    & 170 -- 180            & 100 -- 255                  & 100 -- 255          \\ \hline
+Zelená         & 50 -- 70              & 50 -- 255                   & 50 -- 255           \\ \hline
+Modrá          & 110 -- 130            & 50 -- 255                   & 50 -- 255           \\ \hline
+\end{tabular}
+
+\caption{HSV rozsahy}
+\end{table}
+\newpage
+\subsection{Implementácia}
+
+\begin{lstlisting}[caption={Implementácia farebného filtra pre 3 a 4-kanálové kamery}]
+# Nastavenie cielovej farby pre modry filter
+
+if state == SwapState.BLUE:
+
+    # Hladame modru (100-140), ignorujeme tiene (V>50) a bledo-sive odtiene (S>50)
+
+    maska = cv2.inRange(hsv, (100, 50, 50), (140, 255, 255))
+    nova_farba_bgr = (0, 255, 255) # BGR kod pre zltu
+
+# Aplikacia podla typu pripojeneho zariadenia
+if num_channels == 3:  # Notebook (BGR)
+    camera = ()
+    image[maska > 0] = nova_farba_bgr + camera
+
+elif num_channels == 4: # Ximea (BGRA)
+    camera = (255,)
+    image[maska > 0] = nova_farba_bgr + camera
+
+
+\end{lstlisting}
+\subsection{Výsledky filtrácie}
+Na nasledujúcom obrázku je zobrazená funkčnosť filtra pre jednotlivé farebné kanály. Pôvodný obraz je porovnaný s výsledkom po aplikácii HSV masky, kde detekovaná červená farba je nahradená ružovou, detekovaná modrá je nahradená žltou a detekovaná zelená je nahradená oranžovou.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.3\textwidth]{pastelk.png}
+    \caption{Ukážka ako funguje naša implementácia}
+    \label{fig:pencils}
+\end{figure}
+\newpage
+
+\begin{thebibliography}{9}
+\bibitem{tangram_vision}
+Tangram Vision Blog. \textit{Exploring Distortion and Distortion Models}. \\
+Dostupné na: \url{https://www.tangramvision.com/blog/camera-modeling-exploring-distortion-and-distortion-models-part-iii}
+
+\bibitem{opencv_colorspaces}
+OpenCV Documentation. \textit{Changing Colorspaces}. \\
+Dostupné na: \url{https://docs.opencv.org/4.x/df/d9d/tutorial_py_colorspaces.html}
+
+\bibitem{opencv_track}
+LearnOpenCV. \textit{Color Spaces in OpenCV}. \\
+Dostupné na: \url{https://learnopencv.com/color-spaces-in-opencv-cpp-python/}
+
+\bibitem{hsv_converter}
+Online HSV Converter a kalkulačka pre OpenCV rozsahy. \\
+Dostupné na: \url{https://vgyp.github.io/OpenCV-HSV-Color-Picker/}
+
+\end{thebibliography}
+
+\end{document}
