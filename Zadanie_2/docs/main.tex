@@ -152,6 +152,115 @@ Na základe spracovania sady kalibračných obrázkov sme získali nasledujúce 
 Tieto hodnoty potvrdzujú mierne súdkovité skreslenie, ktoré je typické pre širokouhlé webkamery.
 
 \newpage
+\section{Detekcia geometrických tvarov (Task 2)}
+
+\subsection{Princíp detekcie}
+Program detekuje geometrické tvary v reálnom čase z kamery alebo zo statických obrázkov. Využíva pritom dva prístupy:
+
+\begin{itemize}
+    \item \textbf{Kontúrová analýza}: Pre polygonálne tvary (trojuholník, štvorec, obdĺžnik, päťuholník, šesťuholník).
+    \item \textbf{Houghova transformácia}: Pre detekciu kružníc.
+\end{itemize}
+
+\subsection{Predspracovanie obrazu}
+Pred samotnou detekciou prebieha niekoľko krokov predspracovania:
+
+\begin{enumerate}
+    \item \textbf{Undistortion}: Odstránenie skreslenia šošovky pomocou kalibračných parametrov z Task 1.
+    \item \textbf{Prevod na odtiene šedej}: Konverzia BGR (webkamera) alebo BGRA (Ximea) obrazu na grayscale.
+    \item \textbf{Gaussovo rozmazanie} ($5 \times 5$): Redukcia šumu pred detekciou hrán.
+    \item \textbf{Cannyho detektor hrán}: Nájdenie hrán s prahmi 50 a 150.
+\end{enumerate}
+
+\begin{lstlisting}[caption={Predspracovanie obrazu pred detekciou}]
+gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+edges = cv2.Canny(blurred, 50, 150)
+\end{lstlisting}
+
+\subsection{Detekcia polygonálnych tvarov}
+
+\subsubsection*{Nájdenie kontúr}
+Funkcia \textbf{cv2.findContours} s príznakom \textbf{RETR\_EXTERNAL} vráti len vonkajšie kontúry objektov, čím sa vyhneme vnoreným kontúram vo vnútri tvarov.
+
+\subsubsection*{Aproximácia a klasifikácia}
+Každá kontúra sa aproximuje polygónom pomocou \textbf{cv2.approxPolyDP} s toleranciou $1\,\%$ dĺžky obvodu. Počet vrcholov aproximovaného polygónu jednoznačne určuje typ tvaru:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|l|}
+\hline
+\textbf{Počet vrcholov} & \textbf{Tvar} \\ \hline
+3 & Trojuholník (Triangle) \\ \hline
+4 & Štvorec alebo Obdĺžnik \\ \hline
+5 & Päťuholník (Pentagon) \\ \hline
+6 & Šesťuholník (Hexagon) \\ \hline
+\end{tabular}
+\caption{Klasifikácia tvarov podľa počtu vrcholov polygónu}
+\end{table}
+
+Pre rozlíšenie štvorca a obdĺžnika sa počíta pomer strán (\textit{aspect ratio}) ohraničujúceho obdĺžnika:
+\[
+\text{aspect} = \frac{b_w}{b_h}
+\]
+Ak $0.95 < \text{aspect} < 1.05$, tvar je klasifikovaný ako \textbf{Štvorec}, inak ako \textbf{Obdĺžnik}.
+
+Ťažisko každého tvaru sa vypočíta pomocou momentov kontúry:
+\[
+c_x = \frac{m_{10}}{m_{00}}, \quad c_y = \frac{m_{01}}{m_{00}}
+\]
+
+\subsection{Detekcia kružníc - Houghova transformácia}
+Kružnice nemajú ostré vrcholy, preto aproximácia polygónom nefunguje tak spoľahlivo. Namiesto toho používame \textbf{cv2.HoughCircles} s metódou \textbf{HOUGH\_GRADIENT}, ktorá pracuje priamo s gradientmi obrazu.
+Pred Houghovou transformáciou sa navyše aplikuje silnejšie Gaussovo rozmazanie ($9 \times 9$, $\sigma = 2$), aby sa potlačil šum, ktorý by inak generoval falošné detekcie a vytvarame jemnejšie hrany.
+
+\subsubsection*{Parametre Houghovej transformácie}
+\begin{itemize}
+    \item \textbf{dp = 1}: Rozlíšenie akumulátora zodpovedá rozlíšeniu obrazu.
+    \item \textbf{minDist = 30 px}: Minimálna vzdialenosť medzi stredmi susedných kružníc.
+    \item \textbf{param1 = 70}: Horný prah Cannyho detektora použitého interne v Houghovej transformácii.
+    \item \textbf{param2 = 40}: Prah akumulátora - nižšia hodnota znamená viac falošných detekcií.
+    \item \textbf{minRadius = 10 px}: Ignorujeme príliš malé kružnice (šum).
+\end{itemize}
+
+\subsection{Potlačenie duplicít kružníc - NMS}
+Houghova transformácia môže pre jednu kružnicu vrátiť viacero kandidátov s podobnými stredmi. Vlastná funkcia \textbf{\_nms\_circles} implementuje \textit{Non-Maximum Suppression}:
+
+\begin{enumerate}
+    \item Kandidáti sa zoradia zostupne podľa polomeru.
+    \item Pre každý neoznačený kandidát $i$ sa potlačia všetci kandidáti $j$, ktorých stred leží vo vzdialenosti menšej ako $0.8 \cdot \max(r_i, r_j)$ od stredu $i$.
+\end{enumerate}
+
+\begin{lstlisting}[caption={Core NMS algoritmu pre kružnice}]
+order = np.argsort(-circles[:, 2])  # zoradenie podla polomeru
+circles = circles[order]
+
+for i in range(len(circles)):
+    if suppressed[i]:
+        continue
+    cx1, cy1, r1 = circles[i]
+    for j in range(i + 1, len(circles)):
+        if suppressed[j]:
+            continue
+        cx2, cy2, r2 = circles[j]
+        d = np.hypot(cx1 - cx2, cy1 - cy2)
+        if d < dist_thresh_ratio * max(r1, r2):
+            suppressed[j] = True
+\end{lstlisting}
+
+\subsection{Vizualizácia a ladenie}
+Program zobrazuje okrem výsledného obrazu aj pomocné debug okno so štyrmi pohľadmi:
+
+\begin{itemize}
+    \item Grayscale obraz
+    \item Rozmazaný (Gaussian) obraz
+    \item Výsledok Cannyho detektora hrán
+    \item Nájdené kontúry
+\end{itemize}
+
+Detekované polygonálne tvary sú označené bielym obrysom s názvom tvaru. Kružnice sú označené zeleným kruhom, červenou bodkou v strede a nápisom \textit{Circle}.
+
+\newpage
 \newpage
 \section{Farebný filter (Task 3)}
 
