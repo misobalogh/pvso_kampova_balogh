@@ -63,7 +63,7 @@ def color_swap_filter(image, state: SwapState):
         m1 = cv2.inRange(hsv, (0, 100, 100), (10, 255, 255))
         m2 = cv2.inRange(hsv, (170, 100, 100), (180, 255, 255))
         maska = cv2.bitwise_or(m1, m2)
-        nova_farba_bgr = (180, 105, 255) # Pink  
+        nova_farba_bgr = (180, 105, 255) # Pink
 
     elif state == SwapState.GREEN:
         maska = cv2.inRange(hsv, (50, 50, 50), (70, 255, 255))
@@ -75,7 +75,7 @@ def color_swap_filter(image, state: SwapState):
 
     # Mask
     if maska is not None:
-        if num_channels == 3:  # BGR 
+        if num_channels == 3:  # BGR
             camera = ()
             image[maska > 0] = nova_farba_bgr + camera
 

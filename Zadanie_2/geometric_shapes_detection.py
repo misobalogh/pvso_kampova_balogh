@@ -20,6 +20,7 @@ USE_XIMEA = False
 #   Camera calibration parameters  #
 ####################################
 CALIB_FILE = "camera_calib.npz"
+CAMERA_DISTANCE_CM = 30.0
 
 _mtx = None
 _dist = None
@@ -55,6 +56,16 @@ def undistort_frame(frame):
     dst = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)
     x, y, rw, rh = roi
     return dst[y : y + rh, x : x + rw]
+
+
+def px_to_cm(pixels, axis="x"):
+    """
+    formula: real_size = pixel_size * Z / focal_length
+    """
+    if _mtx is None:
+        return None
+    f = _mtx[0, 0] if axis == "x" else _mtx[1, 1]
+    return pixels * CAMERA_DISTANCE_CM / f
 
 
 ####################################
@@ -140,14 +151,33 @@ def detect_shapes(frame):
 
         if n_pts == 3:
             shape = "Triangle"
+            # longest side as representative size
+            pts = approx.reshape(-1, 2)
+            sides_px = [np.linalg.norm(pts[i] - pts[(i+1) % 3]) for i in range(3)]
+            size_cm = px_to_cm(max(sides_px), "x")
+            size_label = f"{size_cm:.1f} cm" if size_cm is not None else ""
         elif n_pts == 4:
             bx, by, bw, bh = cv2.boundingRect(approx)
             aspect = bw / float(bh)
             shape = "Square" if 0.95 < aspect < 1.05 else "Rectangle"
+            w_cm = px_to_cm(bw, "x")
+            h_cm = px_to_cm(bh, "y")
+            if w_cm is not None:
+                size_label = (f"{w_cm:.1f} x {h_cm:.1f} cm")
+            else:
+                size_label = ""
         elif n_pts == 5:
             shape = "Pentagon"
+            pts = approx.reshape(-1, 2)
+            sides_px = [np.linalg.norm(pts[i] - pts[(i+1) % 5]) for i in range(5)]
+            size_cm = px_to_cm(np.mean(sides_px), "x")
+            size_label = f"{size_cm:.1f} cm" if size_cm is not None else ""
         elif n_pts == 6:
             shape = "Hexagon"
+            pts = approx.reshape(-1, 2)
+            sides_px = [np.linalg.norm(pts[i] - pts[(i+1) % 6]) for i in range(6)]
+            size_cm = px_to_cm(np.mean(sides_px), "x")
+            size_label = f"{size_cm:.1f} cm" if size_cm is not None else ""
         else:
             # Circles are handled by Hough
             continue
@@ -158,6 +188,11 @@ def detect_shapes(frame):
         cv2.putText(
             output, shape, (cx - 40, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2
         )
+        if size_label:
+            cv2.putText(
+                output, size_label, (cx - 40, cy + 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1
+            )
 
     hough_blur = cv2.GaussianBlur(gray, (9, 9), 2)
     raw = cv2.HoughCircles(
@@ -178,10 +213,14 @@ def detect_shapes(frame):
         for cx, cy, r in circles:
             cv2.circle(output, (cx, cy), r, (0, 255, 0), 2)
             cv2.circle(output, (cx, cy), 3, (0, 0, 255), -1)
+            diam_cm = px_to_cm(2 * r, "x")
+            circle_label = "Circle"
+            if diam_cm is not None:
+                circle_label += f"  r={diam_cm/2:.1f} cm"
             cv2.putText(
                 output,
-                "Circle",
-                (cx - 30, cy - r - 10),
+                circle_label,
+                (cx - 50, cy - r - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 255, 0),

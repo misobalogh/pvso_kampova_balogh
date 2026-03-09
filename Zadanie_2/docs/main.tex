@@ -284,6 +284,57 @@ Program zobrazuje okrem výsledného obrazu aj pomocné debug okno so štyrmi po
 Detekované polygonálne tvary sú označené bielym obrysom s názvom tvaru. Kružnice sú označené zeleným kruhom, červenou bodkou v strede a nápisom \textit{Circle}.
 
 \newpage
+\subsection{Bonus: Určenie veľkosti objektov v centimetroch}
+
+\subsubsection*{Princíp výpočtu}
+Na prepočet pixelovej veľkosti objektu na reálne rozmery využívame model perspektívnej kamery.
+Zo vzťahu podobných trojuholníkov platí:
+
+\[
+\frac{\text{object\_size}}{Z} = \frac{\text{image\_size}}{f_x}
+\]
+
+Z toho vyjadríme reálnu veľkosť objektu:
+
+\[
+\text{object\_size} = \frac{\text{image\_size} \cdot Z}{f_{x}}
+\]
+
+kde $f_x$ je ohnisková vzdialenosť v pixeloch z kalibrovanej matice kamery $K$ a $Z$     je vzdialenosť roviny objektov od kamery v centimetroch. Pre vertikálne rozmery sa analogicky použije $f_y$.
+
+\subsubsection*{Implementácia}
+Vzdialenosť $Z$ je konštanta \textbf{CAMERA\_DISTANCE\_CM}, ktorú je potrebné fyzicky odmerať a nastaviť. Výpočet prebieha vo funkcii \textbf{px\_to\_cm}:
+
+\begin{lstlisting}[caption={Prepočet pixelov na centimetre pomocou kalibračnej matice}]
+CAMERA_DISTANCE_CM = 30.0  # fyzicka vzdialenost kamery od objektov [cm]
+
+def px_to_cm(pixels, axis="x"):
+    if _mtx is None:
+        return None
+    f = _mtx[0, 0] if axis == "x" else _mtx[1, 1]
+    return pixels * CAMERA_DISTANCE_CM / f
+\end{lstlisting}
+
+\subsubsection*{Zobrazované rozmery}
+Pre každý detekovaný tvar sa vypočíta a zobrazí príslušná veličina:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Tvar} & \textbf{Zobrazená veličina} \\ \hline
+Kruh (Circle)         & Polomer $r$ v cm \\ \hline
+Štvorec (Square)      & Dĺžka strany v cm \\ \hline
+Obdĺžnik (Rectangle)  & Šírka $\times$ Výška v cm \\ \hline
+Trojuholník (Triangle) & Najdlhšia strana v cm \\ \hline
+Pentagon / Hexagon    & Priemerná dĺžka strany v cm \\ \hline
+\end{tabular}
+\caption{Zobrazované rozmery pre jednotlivé typy tvarov}
+\end{table}
+
+Ak kalibračný súbor \textbf{camera\_calib.npz} nie je dostupný, funkcia \textbf{px\_to\_cm} vráti \texttt{None} a rozmery sa nezobrazujú.
+
+\newpage
 \newpage
 \section{Farebný filter (Task 3)}
 
