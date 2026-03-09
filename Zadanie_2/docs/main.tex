@@ -40,13 +40,36 @@
 
 \geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
 
-\title{Zadanie 2: Kalibrácia kamery a spracovanie obrazu}
+\title{Zadanie 2: Kalibrácia kamery}
 \author{Michal Balogh \\ Jana Kampová}
-\date{Predmet: PVSO \\ 2025/2026}
+\date{Predmet: PVSO \\ 2026}
 
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+	\begin{center}
+		\textsc{
+			\Huge{Fakulta elektrotechniky a informatiky\\
+                  Slovenskej technickej univerzity\\}
+		}
+		\vspace{\stretch{0.382}}
+		\LARGE{
+            \Large{PVSO}\\
+			\Huge{Zadanie 2: Kalibrácia kamery}\\
+		}
+		\vspace{\stretch{0.618}}
+	\end{center}
+	{\Large{
+		\hfill
+		Michal Balogh
+
+        \hfill
+        Jana Kampová
+
+        \today
+		}
+	}
+\end{titlepage}
 \clearpage
 \tableofcontents
 \clearpage
@@ -205,7 +228,7 @@ Pre rozlíšenie štvorca a obdĺžnika sa počíta pomer strán (\textit{aspect
 \]
 Ak $0.95 < \text{aspect} < 1.05$, tvar je klasifikovaný ako \textbf{Štvorec}, inak ako \textbf{Obdĺžnik}.
 
-Ťažisko každého tvaru sa vypočíta pomocou momentov kontúry (inšpirácia z \ref{moments}), kde $m_{pq}$ sú momenty kontúry:
+Ťažisko každého tvaru sa vypočíta pomocou momentov kontúry (inšpirácia z \cite{moments}), kde $m_{pq}$ sú momenty kontúry:
 \[
 c_x = \frac{m_{10}}{m_{00}}, \quad c_y = \frac{m_{01}}{m_{00}}
 \]
