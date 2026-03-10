@@ -160,19 +160,19 @@ Spätná kontrola prebieha tak, že vezmeme 3D body ideálnej šachovnice a cez 
 Na základe spracovania sady kalibračných obrázkov sme získali nasledujúce parametre :
 
 \begin{itemize}
-    \item \textbf{Mean Reprojection Error} = 0.245 px
     \item \textbf{Matica kamery $K$:}
     \[
     K = \begin{bmatrix}
-    645.12 & 0 & 320.55 \\
-    0 & 644.89 & 240.12 \\
+    3756.5840 & 0 & 1256.2995 \\
+    0 & 3750.7221 & 982.8654 \\
     0 & 0 & 1
     \end{bmatrix}
     \]
     \item \textbf{Koeficienty skreslenia:}
-    \textbf{dist} = $[-0.28, 0.09, 0.001, 0.002, -0.01]$
+    $[-0.4522, 0.5788, -0.0006, 0.0024, 0.0750]$
+    \item \textbf{Mean reprojection error:} $0.1101$ px
 \end{itemize}
-Tieto hodnoty potvrdzujú mierne súdkovité skreslenie, ktoré je typické pre širokouhlé webkamery.
+Parametre boli uložené do súboru \texttt{camera\_calib.npz}.
 
 \newpage
 \section{Detekcia geometrických tvarov (Task 2)}
