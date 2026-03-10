@@ -100,7 +100,7 @@ Ak sa nájdu všetky rohy (\textbf{ret == True}), nasleduje :
 \end{itemize}
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.5\textwidth]{chessboard.png}
+    \includegraphics[width=0.5\textwidth]{assets/chessboard_corners.jpg}
     \caption{Ukážka detekcie vnútorných rohov na šachovnici v našom programe pomocou \textbf{cv2.drawChessboardCorners}.}
 \end{figure}
 \subsection{Výpočet modelu a geometria kamery}
@@ -128,12 +128,12 @@ Reálne šošovky mávajú geometrické deformácie, ktoré v kóde popisujeme k
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.3\textwidth]{image_1b9dfe.png} \hfill
-    \includegraphics[width=0.3\textwidth]{image_1b9e1b.png}
+    \includegraphics[width=0.3\textwidth]{assets/image_1b9dfe.png} \hfill
+    \includegraphics[width=0.3\textwidth]{assets/image_1b9e1b.png}
     \hfill
-    \includegraphics[width=0.3\textwidth]{image_1b9b52.png}
+    \includegraphics[width=0.3\textwidth]{assets/image_1b9b52.png}
     \hfill
-    \includegraphics[width=0.3\textwidth]{image_1b9e3e.png}
+    \includegraphics[width=0.3\textwidth]{assets/image_1b9e3e.png}
 
     \caption{Zľava: radiálne skreslenie typu Barrel a Pincushion, tangenciálne skreslenie, ideálna mriežka bez skreslenia}
 \end{figure}
@@ -145,6 +145,12 @@ Pre narovnanie obrazu používame dve metódy definované v \textbf{UndistortMet
     \item \textbf{Metóda CROP}: \newline Počíta sa pre každý obrazok. Algoritmus vezme súradnicu rovného pixelu, vypočíta, kde by bol v pokrivenom obraze, a pomocou \textbf{interpolácie} (priemer zo 4 susedných pixelov) mu priradi farbu.
     \item \textbf{Metóda REMAPP}: \newline Najskôr vytvorí mapu rozdielov pre každý jeden pixel. Táto mapa sa vytvorí len raz na začiatku a potom sa už len aplikuje na každý nasnímaný obrázok, čo je dobre využiteľné práve pre spracovanie videa v reálnom čase.
 \end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{assets/undistortion_result.jpg}
+    \caption{Porovnanie obrazu pred a po kalibrácii kamery. Vľavo pôvodný obraz, vpravo narovnaný obraz po odstránení skreslenia.}
+\end{figure}
 
 \subsubsection*{Optimalizácia a ROI}
 Pomocou \textbf{cv2.getOptimalNewCameraMatrix} a parametra \textbf{alpha=1} (ponechanie všetkých pixelov) získavame \textbf{ROI} (Region of Interest). \newline ROI sú súradnice čistého obdĺžnika bez čiernych rohov $[x, y, rw, rh]$.
@@ -398,9 +404,12 @@ Na nasledujúcom obrázku je zobrazená funkčnosť filtra pre jednotlivé fareb
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.3\textwidth]{pastelk.png}
-    \caption{Ukážka ako funguje naša implementácia}
-    \label{fig:pencils}
+    \begin{tabular}{cc}
+        \includegraphics[width=0.4\textwidth]{assets/SwapState.ORIGINAL_000.jpg} & \includegraphics[width=0.4\textwidth]{assets/SwapState.RED_001.jpg} \\
+        \includegraphics[width=0.4\textwidth]{assets/SwapState.GREEN_002.jpg} & \includegraphics[width=0.4\textwidth]{assets/SwapState.BLUE_003.jpg} \\
+    \end{tabular}
+    \caption{Porovnanie: pôvodný obrázok (hore vľavo), červená nahradená ružovou (hore vpravo), zelená nahradená oranžovou (dole vľavo), modrá nahradená žltou (dole vpravo).}
+    \label{fig:swapstate_collage}
 \end{figure}
 \newpage
 
