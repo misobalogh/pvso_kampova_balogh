@@ -201,12 +201,6 @@ Pred samotnou detekciou prebieha niekoľko krokov predspracovania:
     \item \textbf{Cannyho detektor hrán}: Nájdenie hrán, prahy sa ladia pomocou interaktívnych sliderov.
 \end{enumerate}
 
-\begin{lstlisting}[caption={Predspracovanie obrazu pred detekciou}]
-gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
-blurred = cv2.GaussianBlur(gray, (params["blur_k"], params["blur_k"]), 0)
-edges = cv2.Canny(blurred, params["canny_low"], params["canny_high"])
-\end{lstlisting}
-
 \subsection{Detekcia polygonálnych tvarov}
 
 \subsubsection*{Nájdenie kontúr}
@@ -309,7 +303,13 @@ Súčasťou programu je aj samostatné okno \textbf{Settings} s interaktívnymi 
 
 Vďaka týmto sliderom je možné algoritmus dolaďovať priamo nad živým obrazom bez potreby meniť zdrojový kód a opakovane spúšťať program.
 
-\newpage
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{assets/geo_shapes_det.png}
+    \caption{Detekované geometrické tvary.}
+    \label{fig:geo_shapes}
+\end{figure}
+
 \subsection{Bonus: Určenie veľkosti objektov v centimetroch}
 
 \subsubsection*{Princíp výpočtu}
@@ -360,7 +360,13 @@ Pentagon / Hexagon    & Priemerná dĺžka strany v cm \\ \hline
 
 Ak kalibračný súbor \textbf{camera\_calib.npz} nie je dostupný, funkcia \textbf{px\_to\_cm} vráti \texttt{None} a rozmery sa nezobrazujú.
 
-\newpage
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{assets/geo_shapes_det_with_cm.png}
+    \caption{Detekované geometrické tvary a ich veľkosti.}
+    \label{fig:geo_shapes_cm}
+\end{figure}
+
 \newpage
 \section{Farebný filter (Task 3)}
 
@@ -426,8 +432,8 @@ Na nasledujúcom obrázku je zobrazená funkčnosť filtra pre jednotlivé fareb
 \begin{figure}[h]
     \centering
     \begin{tabular}{cc}
-        \includegraphics[width=0.4\textwidth]{assets/SwapState.ORIGINAL_000.jpg} & \includegraphics[width=0.4\textwidth]{assets/SwapState.RED_001.jpg} \\
-        \includegraphics[width=0.4\textwidth]{assets/SwapState.GREEN_002.jpg} & \includegraphics[width=0.4\textwidth]{assets/SwapState.BLUE_003.jpg} \\
+        \includegraphics[width=0.25\textwidth]{assets/SwapState.ORIGINAL_000.jpg} & \includegraphics[width=0.25\textwidth]{assets/SwapState.RED_001.jpg} \\
+        \includegraphics[width=0.25\textwidth]{assets/SwapState.GREEN_002.jpg} & \includegraphics[width=0.25\textwidth]{assets/SwapState.BLUE_003.jpg} \\
     \end{tabular}
     \caption{Porovnanie: pôvodný obrázok (hore vľavo), červená nahradená ružovou (hore vpravo), zelená nahradená oranžovou (dole vľavo), modrá nahradená žltou (dole vpravo).}
     \label{fig:swapstate_collage}
