@@ -197,14 +197,14 @@ Pred samotnou detekciou prebieha niekoľko krokov predspracovania:
 \begin{enumerate}
     \item \textbf{Undistortion}: Odstránenie skreslenia šošovky pomocou kalibračných parametrov z Task 1.
     \item \textbf{Prevod na odtiene šedej}: Konverzia BGR (webkamera) alebo BGRA (Ximea) obrazu na grayscale.
-    \item \textbf{Gaussovo rozmazanie} ($5 \times 5$): Redukcia šumu pred detekciou hrán.
-    \item \textbf{Cannyho detektor hrán}: Nájdenie hrán s prahmi 50 a 150.
+    \item \textbf{Gaussovo rozmazanie}: Redukcia šumu pred detekciou hrán aj pred Houghovou transformáciou.
+    \item \textbf{Cannyho detektor hrán}: Nájdenie hrán, prahy sa ladia pomocou interaktívnych sliderov.
 \end{enumerate}
 
 \begin{lstlisting}[caption={Predspracovanie obrazu pred detekciou}]
 gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
-blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-edges = cv2.Canny(blurred, 50, 150)
+blurred = cv2.GaussianBlur(gray, (params["blur_k"], params["blur_k"]), 0)
+edges = cv2.Canny(blurred, params["canny_low"], params["canny_high"])
 \end{lstlisting}
 
 \subsection{Detekcia polygonálnych tvarov}
@@ -213,7 +213,9 @@ edges = cv2.Canny(blurred, 50, 150)
 Funkcia \textbf{cv2.findContours} s príznakom \textbf{RETR\_EXTERNAL} vráti len vonkajšie kontúry objektov, čím sa vyhneme vnoreným kontúram vo vnútri tvarov.
 
 \subsubsection*{Aproximácia a klasifikácia}
-Každá kontúra sa aproximuje polygónom pomocou \textbf{cv2.approxPolyDP} s toleranciou $1\,\%$ dĺžky obvodu. Počet vrcholov aproximovaného polygónu jednoznačne určuje typ tvaru:
+Pri testovaní sa ukázalo, že samotná aproximácia pôvodnej kontúry je citlivá na perspektívu, šum a drobné nerovnosti hrany. Preto pred aproximáciou najskôr počítame \textbf{konvexný obal} kontúry (\textbf{convex hull}), ktorý odstraňuje malé lokálne zárezy a stabilizuje tvar objektu.
+
+Následne sa konvexný obal aproximuje polygónom pomocou \textbf{cv2.approxPolyDP}. Tolerancia aproximácie nie je pevná, ale je riadená hyperparametrom \textbf{poly\_eps}, pričom v implementácii používame dolnú hranicu $1.8\,\%$ dĺžky obvodu. Počet vrcholov aproximovaného polygónu slúži ako základná informácia pre klasifikáciu:
 
 \begin{table}[h]
 \centering
@@ -234,6 +236,10 @@ Pre rozlíšenie štvorca a obdĺžnika sa počíta pomer strán (\textit{aspect
 \]
 Ak $0.95 < \text{aspect} < 1.05$, tvar je klasifikovaný ako \textbf{Štvorec}, inak ako \textbf{Obdĺžnik}.
 
+Okrem toho používame aj pomocnú mieru \textbf{rectangularity}, ktorá porovnáva plochu kontúry s plochou minimálneho otočeného obdĺžnika (\textbf{minAreaRect}). Ak aproximácia vplyvom perspektívy alebo šumu vytvorí $5$ až $6$ vrcholov, ale hodnota rectangularity ostane vysoká, objekt sa stále interpretuje ako \textbf{štvorec} alebo \textbf{obdĺžnik}. Tento krok výrazne znižuje chybné označenie obdĺžnikových tvarov ako pentagón alebo hexagón.
+
+Pred samotnou klasifikáciou sa zároveň odfiltrujú príliš malé kontúry pomocou hyperparametra \textbf{Min area}, aby sa potlačili falošné detekcie vzniknuté šumom v obraze.
+
 Ťažisko každého tvaru sa vypočíta pomocou momentov kontúry (inšpirácia z \cite{moments}), kde $m_{pq}$ sú momenty kontúry:
 \[
 c_x = \frac{m_{10}}{m_{00}}, \quad c_y = \frac{m_{01}}{m_{00}}
@@ -241,15 +247,15 @@ c_x = \frac{m_{10}}{m_{00}}, \quad c_y = \frac{m_{01}}{m_{00}}
 
 \subsection{Detekcia kružníc - Houghova transformácia}
 Kružnice nemajú ostré vrcholy, preto aproximácia polygónom nefunguje tak spoľahlivo. Namiesto toho používame \textbf{cv2.HoughCircles} s metódou \textbf{HOUGH\_GRADIENT}, ktorá pracuje priamo s gradientmi obrazu.
-Pred Houghovou transformáciou sa navyše aplikuje silnejšie Gaussovo rozmazanie ($9 \times 9$, $\sigma = 2$), aby sa potlačil šum, ktorý by inak generoval falošné detekcie a vytvarame jemnejšie hrany.
+Houghova transformácia v aktuálnej implementácii používa ten istý rozmazaný obraz ako Cannyho detektor. Tým pádom sa polygonálna detekcia aj detekcia kružníc správajú konzistentne a reagujú na rovnaký hyperparameter rozmazania.
 
 \subsubsection*{Parametre Houghovej transformácie}
 \begin{itemize}
-    \item \textbf{dp = 1}: Rozlíšenie akumulátora zodpovedá rozlíšeniu obrazu.
-    \item \textbf{minDist = 30 px}: Minimálna vzdialenosť medzi stredmi susedných kružníc.
-    \item \textbf{param1 = 70}: Horný prah Cannyho detektora použitého interne v Houghovej transformácii.
-    \item \textbf{param2 = 40}: Prah akumulátora - nižšia hodnota znamená viac falošných detekcií.
-    \item \textbf{minRadius = 10 px}: Ignorujeme príliš malé kružnice (šum).
+    \item \textbf{dp}: Pomer rozlíšenia akumulátora voči vstupnému obrazu.
+    \item \textbf{minDist}: Minimálna vzdialenosť medzi stredmi susedných kružníc.
+    \item \textbf{param1}: Horný prah Cannyho detektora použitého interne v Houghovej transformácii. Tento parameter je zámerne naviazaný na rovnaký slider ako Cannyho detektor použitý pri kontúrach.
+    \item \textbf{param2}: Prah akumulátora - nižšia hodnota znamená viac falošných detekcií.
+    \item \textbf{minRadius, maxRadius}: Očakávaný rozsah polomerov kružníc.
 \end{itemize}
 
 \subsection{Potlačenie duplicít kružníc - NMS}
@@ -289,6 +295,20 @@ Program zobrazuje okrem výsledného obrazu aj pomocné debug okno so štyrmi po
 
 Detekované polygonálne tvary sú označené bielym obrysom s názvom tvaru. Kružnice sú označené zeleným kruhom, červenou bodkou v strede a nápisom \textit{Circle}.
 
+Súčasťou programu je aj samostatné okno \textbf{Settings} s interaktívnymi slidermi. Používateľ môže počas behu meniť hyperparametre:
+
+\begin{itemize}
+    \item vzdialenosť kamery od objektov $Z$,
+    \item horný prah Cannyho detektora,
+    \item veľkosť Gaussovho rozmazania,
+    \item minimálnu plochu kontúry,
+    \item parameter aproximácie \textbf{poly\_eps},
+    \item parametre Houghovej transformácie ($dp$, $minDist$, $param2$, rozsah polomerov),
+    \item parameter \textit{Non-Maximum Suppression} pre potláčanie duplicitných kružníc.
+\end{itemize}
+
+Vďaka týmto sliderom je možné algoritmus dolaďovať priamo nad živým obrazom bez potreby meniť zdrojový kód a opakovane spúšťať program.
+
 \newpage
 \subsection{Bonus: Určenie veľkosti objektov v centimetroch}
 
@@ -309,7 +329,7 @@ Z toho vyjadríme reálnu veľkosť objektu:
 kde $f_x$ je ohnisková vzdialenosť v pixeloch z kalibrovanej matice kamery $K$ a $Z$     je vzdialenosť roviny objektov od kamery v centimetroch. Pre vertikálne rozmery sa analogicky použije $f_y$.
 
 \subsubsection*{Implementácia}
-Vzdialenosť $Z$ je konštanta \textbf{CAMERA\_DISTANCE\_CM}, ktorú je potrebné fyzicky odmerať a nastaviť. Výpočet prebieha vo funkcii \textbf{px\_to\_cm}:
+Vzdialenosť $Z$ je inicializovaná konštantou \textbf{CAMERA\_DISTANCE\_CM}, ale počas behu ju možno meniť aj interaktívne sliderom v okne \textbf{Settings}. Výpočet prebieha vo funkcii \textbf{px\_to\_cm}:
 
 \begin{lstlisting}[caption={Prepočet pixelov na centimetre pomocou kalibračnej matice}]
 CAMERA_DISTANCE_CM = 30.0  # fyzicka vzdialenost kamery od objektov [cm]
@@ -318,7 +338,7 @@ def px_to_cm(pixels, axis="x"):
     if _mtx is None:
         return None
     f = _mtx[0, 0] if axis == "x" else _mtx[1, 1]
-    return pixels * CAMERA_DISTANCE_CM / f
+    return pixels * camera_distance_cm / f
 \end{lstlisting}
 
 \subsubsection*{Zobrazované rozmery}
@@ -350,7 +370,7 @@ Pre detekciu farieb sme použili model \textbf{HSV}. Hlavným dôvodom je, že n
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.6\textwidth]{colors.png}
+    \includegraphics[width=0.6\textwidth]{assets/colors.png}
     \caption{HSV farebný model používaný aj v knižnici OpenCV.}
     \label{fig:hsv_wheel}
 \end{figure}
@@ -402,6 +422,7 @@ elif num_channels == 4: # Ximea (BGRA)
 \subsection{Výsledky filtrácie}
 Na nasledujúcom obrázku je zobrazená funkčnosť filtra pre jednotlivé farebné kanály. Pôvodný obraz je porovnaný s výsledkom po aplikácii HSV masky, kde detekovaná červená farba je nahradená ružovou, detekovaná modrá je nahradená žltou a detekovaná zelená je nahradená oranžovou.
 
+
 \begin{figure}[h]
     \centering
     \begin{tabular}{cc}
@@ -411,6 +432,7 @@ Na nasledujúcom obrázku je zobrazená funkčnosť filtra pre jednotlivé fareb
     \caption{Porovnanie: pôvodný obrázok (hore vľavo), červená nahradená ružovou (hore vpravo), zelená nahradená oranžovou (dole vľavo), modrá nahradená žltou (dole vpravo).}
     \label{fig:swapstate_collage}
 \end{figure}
+
 \newpage
 
 \begin{thebibliography}{9}
