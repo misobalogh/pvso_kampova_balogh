@@ -252,7 +252,7 @@ def detect_shapes(frame):
             sides_px = [np.linalg.norm(pts[i] - pts[(i+1) % 3]) for i in range(3)]
             size_cm = px_to_cm(max(sides_px), "x", params["camera_distance_cm"])
             size_label = f"{size_cm:.1f} cm" if size_cm is not None else ""
-        elif n_pts <= 6 and rectangularity > 0.82:
+        elif n_pts <= 6 and rectangularity > 0.8:
             shape = "Square" if min(rw, rh) > 0 and max(rw, rh) / min(rw, rh) < 1.1 else "Rectangle"
             w_cm = px_to_cm(rw, "x", params["camera_distance_cm"])
             h_cm = px_to_cm(rh, "y", params["camera_distance_cm"])
