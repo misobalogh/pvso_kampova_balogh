@@ -3,7 +3,7 @@ import cv2
 
 CAMERA_WIDTH = 320
 CAMERA_HEIGHT = 320
-DISPLAY_SCALE = 1
+DISPLAY_SCALE = 0.6
 
 IMAGE_DIR = "imgs"
 
@@ -88,9 +88,62 @@ def apply_on_quadrant(image: np.ndarray, src: np.ndarray, part_num: int) -> np.n
     return image
 
 
+def draw_gray_histogram(gray: np.ndarray, threshold: int | None = None, width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -> np.ndarray:
+    hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).flatten()
+    max_val = hist.max() if hist.size > 0 else 1
+    if max_val == 0:
+        max_val = 1
+
+    hist_norm = hist / max_val
+    hist_img = np.zeros((height, width, 3), dtype=np.uint8)
+    for i in range(256):
+        x0 = int(i * width / 256)
+        x1 = int((i + 1) * width / 256)
+        bar_height = int(hist_norm[i] * (height - 1))
+        cv2.rectangle(hist_img, (x0, height - bar_height), (x1, height), (255, 255, 255), cv2.FILLED)
+
+    if threshold is not None and 0 <= threshold < 256:
+        x = int(threshold * width / 256)
+        cv2.line(hist_img, (x, 0), (x, height), (0, 0, 255), 2)
+        cv2.putText(hist_img, f'Th={threshold}', (5, height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+    return hist_img
+
+
 def _on_trackbar(_value: int) -> None:
     # Callback needs to exist for trackbar
     pass
+
+
+def create_4x2_threshold_mosaic(
+    gray: np.ndarray,
+    frame_gray: np.ndarray,
+    manual_global: np.ndarray,
+    manual_otsu: np.ndarray,
+    manual_adaptive: np.ndarray,
+    thresh: int,
+    otsu_t: int | None,
+    width: int,
+    height: int,
+) -> np.ndarray:
+    mosaic = np.zeros((4 * height, 2 * width, 3), dtype=np.uint8)
+
+    row_data = [
+        (frame_gray, thresh),
+        (manual_global, thresh),
+        (manual_otsu, otsu_t),
+        (manual_adaptive, None),
+    ]
+
+    for row_idx, (img_gray, thresh_val) in enumerate(row_data):
+        y0 = row_idx * height
+        y1 = y0 + height
+        mosaic[y0:y1, 0:width] = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2BGR)
+        mosaic[y0:y1, width : 2 * width] = draw_gray_histogram(
+            gray, threshold=thresh_val, width=width, height=height
+        )
+
+    return mosaic
 
 
 def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -> None:
@@ -100,14 +153,14 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
         return
 
     manual_window = "Manual threshold mosaic: gray/global/otsu/adaptive"
-    # opencv_window = 'OpenCV threshold mosaic: original/global/otsu/adaptive'
-    # cv2.namedWindow(opencv_window, cv2.WINDOW_NORMAL)
+    opencv_window = 'OpenCV threshold mosaic: original/global/otsu/adaptive'
+    cv2.namedWindow(opencv_window, cv2.WINDOW_NORMAL)
     cv2.namedWindow(manual_window, cv2.WINDOW_NORMAL)
 
     display_w = int(2 * width * DISPLAY_SCALE)
-    display_h = int(2 * height * DISPLAY_SCALE)
+    display_h = int(4 * height * DISPLAY_SCALE)
     cv2.resizeWindow(manual_window, display_w, display_h)
-    # cv2.resizeWindow(opencv_window, display_w, display_h)
+    cv2.resizeWindow(opencv_window, display_w, display_h)
 
     cv2.createTrackbar("Global threshold", manual_window, 128, 255, _on_trackbar)
     cv2.createTrackbar("Adaptive block", manual_window, 31, 99, _on_trackbar)
@@ -132,40 +185,53 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
         c_val = cv2.getTrackbarPos("Adaptive C", manual_window)
 
         manual_global = global_threshold(gray, thresh)
-        manual_otsu, _ = otsu_threshold(gray)
+        manual_otsu, otsu_t = otsu_threshold(gray)
         manual_adaptive = adaptive_mean_threshold(gray, block_size=block, C=c_val)
 
-        # cv_global = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)[1]
-        # cv_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        # cv_adaptive = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-        #                                     cv2.THRESH_BINARY, block, c_val)
+        cv_global = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)[1]
+        cv_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        cv_adaptive = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                            cv2.THRESH_BINARY, block, c_val)
 
-        manual_mosaic = np.zeros((2 * height, 2 * width, 3), dtype=np.uint8)
-        apply_on_quadrant(manual_mosaic, cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR), 0)
-        apply_on_quadrant(
-            manual_mosaic, cv2.cvtColor(manual_global, cv2.COLOR_GRAY2BGR), 1
-        )
-        apply_on_quadrant(
-            manual_mosaic, cv2.cvtColor(manual_otsu, cv2.COLOR_GRAY2BGR), 2
-        )
-        apply_on_quadrant(
-            manual_mosaic, cv2.cvtColor(manual_adaptive, cv2.COLOR_GRAY2BGR), 3
-        )
-
-        # opencv_mosaic = np.zeros((2 * height, 2 * width, 3), dtype=np.uint8)
-        # apply_on_quadrant(opencv_mosaic, frame, 0)
-        # apply_on_quadrant(opencv_mosaic, cv2.cvtColor(cv_global, cv2.COLOR_GRAY2BGR), 1)
-        # apply_on_quadrant(opencv_mosaic, cv2.cvtColor(cv_otsu, cv2.COLOR_GRAY2BGR), 2)
-        # apply_on_quadrant(opencv_mosaic, cv2.cvtColor(cv_adaptive, cv2.COLOR_GRAY2BGR), 3)
-
-        display_mosaic = cv2.resize(
-            manual_mosaic,
-            (int(2 * width * DISPLAY_SCALE), int(2 * height * DISPLAY_SCALE)),
-            interpolation=cv2.INTER_NEAREST,
+        manual_mosaic = create_4x2_threshold_mosaic(
+            gray=gray,
+            frame_gray=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+            manual_global=manual_global,
+            manual_otsu=manual_otsu,
+            manual_adaptive=manual_adaptive,
+            thresh=thresh,
+            otsu_t=otsu_t,
+            width=width,
+            height=height,
         )
 
-        cv2.imshow(manual_window, display_mosaic)
-        # cv2.imshow(opencv_window, opencv_mosaic)
+        opencv_mosaic = create_4x2_threshold_mosaic(
+            gray=gray,
+            frame_gray=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+            manual_global=cv_global,
+            manual_otsu=cv_otsu,
+            manual_adaptive=cv_adaptive,
+            thresh=thresh,
+            otsu_t=otsu_t,
+            width=width,
+            height=height,
+        )
+
+        if DISPLAY_SCALE != 1:
+            manual_mosaic = cv2.resize(
+                manual_mosaic,
+                (int(2 * width * DISPLAY_SCALE), int(4 * height * DISPLAY_SCALE)),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+            opencv_mosaic = cv2.resize(
+                opencv_mosaic,
+                (int(2 * width * DISPLAY_SCALE), int(4 * height * DISPLAY_SCALE)),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+        cv2.imshow(manual_window, manual_mosaic)
+        cv2.imshow(opencv_window, opencv_mosaic)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
