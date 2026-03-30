@@ -1,6 +1,11 @@
 import numpy as np
 import cv2
 
+####################################
+#          CAMERA SWITCH
+USE_XIMEA = False
+####################################
+
 CAMERA_WIDTH = 320
 CAMERA_HEIGHT = 320
 DISPLAY_SCALE = 0.6
@@ -147,10 +152,23 @@ def create_4x2_threshold_mosaic(
 
 
 def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -> None:
-    cam = cv2.VideoCapture(0)
-    if not cam.isOpened():
-        print("Cannot open camera, skipping live camera demo.")
-        return
+    if USE_XIMEA:
+        from ximea import xiapi
+        cam = xiapi.Camera()
+        print("Opening first Ximea camera...")
+        cam.open_device()
+        cam.set_exposure(50000)
+        cam.set_param("imgdataformat", "XI_RGB32")
+        cam.set_param("auto_wb", 1)
+        print("Exposure was set to %i us" % cam.get_exposure())
+        xi_img = xiapi.Image()
+        print("Starting data acquisition...")
+        cam.start_acquisition()
+    else:
+        cam = cv2.VideoCapture(0)
+        if not cam.isOpened():
+            print("Cannot open camera, skipping live camera demo.")
+            return
 
     manual_window = "Manual threshold mosaic: gray/global/otsu/adaptive"
     opencv_window = 'OpenCV threshold mosaic: original/global/otsu/adaptive'
@@ -166,15 +184,22 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
     cv2.createTrackbar("Adaptive block", manual_window, 31, 99, _on_trackbar)
     cv2.createTrackbar("Adaptive C", manual_window, 5, 50, _on_trackbar)
 
+    color_to_gray = cv2.COLOR_BGRA2GRAY if USE_XIMEA else cv2.COLOR_BGR2GRAY
+
     print("Live mosaic running. Press q to quit.")
     while True:
-        ret, frame = cam.read()
-        if not ret:
-            print("Failed to read frame from camera")
-            break
+        if USE_XIMEA:
+            cam.get_image(xi_img)
+            frame = xi_img.get_image_data_numpy()
+            frame = cv2.resize(frame, (width, height))
+        else:
+            ret, frame = cam.read()
+            if not ret:
+                print("Failed to read frame from camera")
+                break
+            frame = cv2.resize(frame, (width, height))
 
-        frame = cv2.resize(frame, (width, height))
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame, color_to_gray)
 
         thresh = cv2.getTrackbarPos("Global threshold", manual_window)
         block = cv2.getTrackbarPos("Adaptive block", manual_window)
@@ -195,7 +220,7 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
 
         manual_mosaic = create_4x2_threshold_mosaic(
             gray=gray,
-            frame_gray=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+            frame_gray=gray,
             manual_global=manual_global,
             manual_otsu=manual_otsu,
             manual_adaptive=manual_adaptive,
@@ -207,7 +232,7 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
 
         opencv_mosaic = create_4x2_threshold_mosaic(
             gray=gray,
-            frame_gray=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+            frame_gray=gray,
             manual_global=cv_global,
             manual_otsu=cv_otsu,
             manual_adaptive=cv_adaptive,
@@ -237,7 +262,12 @@ def camera_mosaic_demo(width: int = CAMERA_WIDTH, height: int = CAMERA_HEIGHT) -
         if key == ord("q"):
             break
 
-    cam.release()
+    if USE_XIMEA:
+        print("Stopping acquisition...")
+        cam.stop_acquisition()
+        cam.close_device()
+    else:
+        cam.release()
     cv2.destroyAllWindows()
 
 
